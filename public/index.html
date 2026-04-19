@@ -2,8 +2,14 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎮 Minecraft AFK Panel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MC AFK">
+<meta name="theme-color" content="#0a0e1a">
+<title>⛏️ MC AFK Panel</title>
+<link rel="manifest" href="/manifest.json">
 <script src="/socket.io/socket.io.js"></script>
 <style>
   :root {
@@ -17,189 +23,220 @@
     --purple: #8b5cf6;
     --text: #f1f5f9;
     --muted: #6b7280;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
   }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; overflow:hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
 
+  /* ── TOPBAR ── */
   .topbar {
     background: var(--card);
     border-bottom: 1px solid var(--border);
-    padding: 14px 24px;
+    padding: 12px 16px;
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
     display: flex;
     align-items: center;
     justify-content: space-between;
-    position: sticky;
-    top: 0;
+    flex-shrink: 0;
     z-index: 100;
   }
-  .topbar-logo { display: flex; align-items: center; gap: 10px; font-size: 1.2rem; font-weight: 700; }
-  .topbar-logo span { font-size: 1.5rem; }
+  .topbar-logo { display:flex; align-items:center; gap:8px; }
+  .topbar-logo .title { font-size:1rem; font-weight:700; }
+  .topbar-logo .sub { font-size:0.65rem; color:var(--muted); }
   .status-badge {
-    display: flex; align-items: center; gap: 8px;
-    padding: 6px 16px; border-radius: 20px;
-    font-size: 0.85rem; font-weight: 600;
-    background: #1f2937;
-    transition: all 0.3s;
+    display:flex; align-items:center; gap:6px;
+    padding:6px 12px; border-radius:20px;
+    font-size:0.8rem; font-weight:600;
+    background:#1f2937;
   }
   .status-dot {
-    width: 10px; height: 10px; border-radius: 50%;
-    background: var(--red);
-    box-shadow: 0 0 8px var(--red);
-    transition: all 0.3s;
+    width:9px; height:9px; border-radius:50%;
+    background:var(--red); box-shadow:0 0 6px var(--red);
+    transition:all 0.3s;
   }
-  .status-dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
-  .status-dot.connecting { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); animation: pulse 1s infinite; }
+  .status-dot.online { background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s infinite; }
+  .status-dot.connecting { background:var(--yellow); box-shadow:0 0 8px var(--yellow); animation:pulse 1s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-  .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-  .grid-2 { display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
-  .grid-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
-
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-  }
-  .card-header {
-    padding: 14px 18px;
-    border-bottom: 1px solid var(--border);
-    font-weight: 600;
-    font-size: 0.9rem;
-    display: flex; align-items: center; gap: 8px;
-    background: rgba(255,255,255,0.02);
-  }
-  .card-body { padding: 18px; }
-
-  .stat-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px;
-    text-align: center;
-    transition: transform 0.2s;
-  }
-  .stat-card:hover { transform: translateY(-2px); }
-  .stat-icon { font-size: 1.8rem; margin-bottom: 6px; }
-  .stat-value { font-size: 1.4rem; font-weight: 700; color: var(--green); }
-  .stat-label { font-size: 0.75rem; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
-
-  .form-group { margin-bottom: 14px; }
-  label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
-  input, select {
-    width: 100%;
-    background: #1a2235;
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    transition: border-color 0.2s;
-    outline: none;
-  }
-  input:focus, select:focus { border-color: var(--blue); }
-  input[type="checkbox"] { width: auto; margin-right: 8px; }
-
-  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-  .btn {
-    width: 100%; padding: 12px; border: none; border-radius: 8px;
-    font-size: 0.95rem; font-weight: 600; cursor: pointer;
-    transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;
-  }
-  .btn-start { background: linear-gradient(135deg, #10b981, #059669); color: white; }
-  .btn-start:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(16,185,129,0.4); }
-  .btn-stop { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; margin-top: 8px; }
-  .btn-stop:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(239,68,68,0.4); }
-  .btn-send { background: var(--blue); color: white; width: auto; padding: 10px 20px; border-radius: 8px; }
-  .btn-send:hover { background: #2563eb; }
-  .btn-sm { padding: 6px 12px; font-size: 0.8rem; width: auto; border-radius: 6px; }
-  .btn-clear { background: #374151; color: var(--muted); }
-
-  .console {
-    background: #080d18;
-    border-radius: 8px;
-    padding: 12px;
-    height: 420px;
+  /* ── MAIN SCROLL AREA ── */
+  .main {
+    flex: 1;
     overflow-y: auto;
-    font-family: 'Courier New', monospace;
-    font-size: 0.8rem;
-    line-height: 1.6;
-    border: 1px solid var(--border);
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 80px;
   }
-  .console::-webkit-scrollbar { width: 6px; }
-  .console::-webkit-scrollbar-track { background: transparent; }
-  .console::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+  .page { display:none; padding:12px; }
+  .page.active { display:block; }
 
-  .log-entry { padding: 2px 0; display: flex; gap: 8px; }
-  .log-time { color: #4b5563; flex-shrink: 0; }
-  .log-info { color: #93c5fd; }
-  .log-success { color: #6ee7b7; }
-  .log-error { color: #fca5a5; }
-  .log-warning { color: #fcd34d; }
-  .log-chat { color: #c4b5fd; }
-
-  .chat-row { display: flex; gap: 8px; margin-top: 12px; }
-  .chat-row input { flex: 1; }
-
-  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
-  .tab {
-    padding: 10px 18px; font-size: 0.85rem; cursor: pointer;
-    color: var(--muted); border-bottom: 2px solid transparent;
-    transition: all 0.2s; font-weight: 500;
+  /* ── BOTTOM NAV ── */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding-bottom: var(--safe-bottom);
+    z-index: 200;
   }
-  .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
-  .tab-content { display: none; }
-  .tab-content.active { display: block; }
-
-  .checkbox-row { display: flex; align-items: center; padding: 8px 0; }
-  .checkbox-row label { text-transform: none; font-size: 0.85rem; color: var(--text); cursor: pointer; margin: 0; }
-
-  .progress-bar {
-    height: 8px; background: #1f2937; border-radius: 4px; overflow: hidden; margin-top: 4px;
+  .nav-item {
+    flex: 1; display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    padding: 10px 0; cursor:pointer;
+    color: var(--muted); font-size:0.65rem; font-weight:500;
+    transition: color 0.2s;
+    gap: 3px;
+    border: none; background: none;
   }
-  .progress-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
-  .progress-health { background: linear-gradient(90deg, #ef4444, #f87171); }
-  .progress-food { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .nav-item .nav-icon { font-size:1.3rem; }
+  .nav-item.active { color: var(--blue); }
+  .nav-item.active .nav-icon { transform: scale(1.15); }
 
-  .pos-display {
-    background: #1a2235; border-radius: 8px; padding: 12px;
-    font-family: monospace; font-size: 0.85rem;
-    display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; text-align: center;
+  /* ── STAT CARDS ── */
+  .stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:12px; }
+  .stat-card {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:12px; padding:14px 12px; text-align:center;
   }
-  .pos-coord span { color: var(--muted); font-size: 0.7rem; display: block; }
-  .pos-coord strong { font-size: 1rem; color: var(--green); }
+  .stat-icon { font-size:1.5rem; margin-bottom:4px; }
+  .stat-value { font-size:1.3rem; font-weight:700; color:var(--green); }
+  .stat-label { font-size:0.65rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; }
 
-  .version-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-  .ver-chip {
-    padding: 4px 10px; background: #1f2937; border: 1px solid var(--border);
-    border-radius: 20px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
+  /* ── CARD ── */
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; margin-bottom:12px; overflow:hidden; }
+  .card-header {
+    padding:12px 14px; border-bottom:1px solid var(--border);
+    font-weight:600; font-size:0.85rem; display:flex;
+    align-items:center; gap:8px; justify-content:space-between;
+    background:rgba(255,255,255,0.02);
   }
-  .ver-chip:hover, .ver-chip.selected { background: var(--blue); border-color: var(--blue); color: white; }
+  .card-body { padding:14px; }
 
-  .afk-methods { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; margin-top: 6px; }
+  /* ── FORM ── */
+  .form-group { margin-bottom:12px; }
+  label { display:block; font-size:0.72rem; color:var(--muted); margin-bottom:5px; font-weight:500; text-transform:uppercase; letter-spacing:0.05em; }
+  input, select {
+    width:100%; background:#1a2235; border:1px solid var(--border);
+    color:var(--text); padding:11px 13px; border-radius:9px;
+    font-size:0.95rem; outline:none; transition:border-color 0.2s;
+    -webkit-appearance:none; appearance:none;
+  }
+  input:focus, select:focus { border-color:var(--blue); }
+  .row-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    width:100%; padding:14px; border:none; border-radius:10px;
+    font-size:0.95rem; font-weight:700; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    transition:all 0.15s; -webkit-tap-highlight-color:transparent;
+    min-height:48px;
+  }
+  .btn:active { transform:scale(0.97); }
+  .btn-start { background:linear-gradient(135deg,#10b981,#059669); color:white; }
+  .btn-stop  { background:linear-gradient(135deg,#ef4444,#dc2626); color:white; margin-top:8px; }
+  .btn-blue  { background:var(--blue); color:white; }
+  .btn-purple{ background:var(--purple); color:white; }
+  .btn-gray  { background:#374151; color:var(--muted); font-size:0.8rem; width:auto; padding:8px 14px; border-radius:8px; min-height:unset; }
+
+  /* ── AFK METHOD GRID ── */
+  .afk-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
   .method-card {
-    padding: 10px; background: #1a2235; border: 2px solid var(--border);
-    border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;
+    padding:12px 8px; background:#1a2235; border:2px solid var(--border);
+    border-radius:10px; cursor:pointer; text-align:center; transition:all 0.2s;
   }
-  .method-card:hover, .method-card.selected { border-color: var(--green); background: rgba(16,185,129,0.1); }
-  .method-card .icon { font-size: 1.4rem; margin-bottom: 4px; }
-  .method-card .name { font-size: 0.75rem; font-weight: 600; }
+  .method-card.selected { border-color:var(--green); background:rgba(16,185,129,0.12); }
+  .method-card .icon { font-size:1.5rem; margin-bottom:4px; }
+  .method-card .name { font-size:0.72rem; font-weight:600; }
+  .method-card.full { grid-column:span 2; }
 
-  @media(max-width: 768px) {
-    .grid-2 { grid-template-columns: 1fr; }
-    .grid-stats { grid-template-columns: repeat(2,1fr); }
+  /* ── CONSOLE ── */
+  .console {
+    background:#080d18; border-radius:9px; padding:10px;
+    height:320px; overflow-y:auto; font-family:monospace;
+    font-size:0.75rem; line-height:1.7; border:1px solid var(--border);
+    -webkit-overflow-scrolling:touch;
   }
+  .console::-webkit-scrollbar { width:4px; }
+  .console::-webkit-scrollbar-thumb { background:#374151; border-radius:2px; }
+  .log-entry { display:flex; gap:6px; padding:1px 0; }
+  .log-time { color:#4b5563; flex-shrink:0; font-size:0.7rem; }
+  .log-info    { color:#93c5fd; }
+  .log-success { color:#6ee7b7; }
+  .log-error   { color:#fca5a5; }
+  .log-warning { color:#fcd34d; }
+  .log-chat    { color:#c4b5fd; }
+
+  /* ── CHAT INPUT ── */
+  .chat-row { display:flex; gap:8px; margin-top:10px; }
+  .chat-row input { flex:1; font-size:0.9rem; }
+  .send-btn {
+    padding:11px 14px; border:none; border-radius:9px;
+    color:white; font-size:0.85rem; font-weight:600;
+    cursor:pointer; flex-shrink:0; min-width:60px;
+  }
+
+  /* ── PROGRESS ── */
+  .bar-row { margin-bottom:10px; }
+  .bar-label { display:flex; justify-content:space-between; font-size:0.78rem; margin-bottom:4px; }
+  .progress-bar { height:9px; background:#1f2937; border-radius:5px; overflow:hidden; }
+  .progress-fill { height:100%; border-radius:5px; transition:width 0.5s; }
+  .health-bar { background:linear-gradient(90deg,#ef4444,#f87171); }
+  .food-bar   { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+
+  /* ── POS DISPLAY ── */
+  .pos-display {
+    background:#1a2235; border-radius:9px; padding:12px;
+    display:grid; grid-template-columns:repeat(3,1fr);
+    gap:8px; text-align:center; font-family:monospace;
+  }
+  .pos-coord span { color:var(--muted); font-size:0.65rem; display:block; margin-bottom:2px; }
+  .pos-coord strong { font-size:1rem; color:var(--green); }
+
+  /* ── CHECKBOX ── */
+  .check-row { display:flex; align-items:center; gap:10px; padding:8px 0; }
+  .check-row input[type=checkbox] { width:18px; height:18px; cursor:pointer; }
+  .check-row label { font-size:0.85rem; color:var(--text); text-transform:none; letter-spacing:0; margin:0; cursor:pointer; }
+
+  /* ── QUICK ACTIONS ── */
+  .quick-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+  .quick-btn {
+    padding:14px 10px; background:#1a2235; border:1px solid var(--border);
+    border-radius:10px; cursor:pointer; text-align:center;
+    transition:all 0.15s; color:var(--text);
+    font-size:0.8rem; font-weight:500;
+  }
+  .quick-btn:active { transform:scale(0.95); background:#1f2937; }
+  .quick-btn .q-icon { font-size:1.4rem; display:block; margin-bottom:4px; }
+
+  /* ── INFO BOX ── */
+  .info-box {
+    background:#1a2235; border:1px solid var(--border);
+    border-radius:9px; padding:12px; margin-bottom:10px;
+    font-size:0.8rem; color:var(--muted); display:flex;
+    align-items:flex-start; gap:8px;
+  }
+
+  /* Scrollbar hide on mobile */
+  .main::-webkit-scrollbar { display:none; }
 </style>
 </head>
 <body>
 
+<!-- TOPBAR -->
 <div class="topbar">
   <div class="topbar-logo">
-    <span>⛏️</span>
+    <span style="font-size:1.5rem">⛏️</span>
     <div>
-      <div>Minecraft AFK Panel</div>
-      <div style="font-size:0.7rem;color:var(--muted);font-weight:400">7/24 Bot Yönetim Sistemi</div>
+      <div class="title">MC AFK Panel</div>
+      <div class="sub">7/24 Bot Yönetim</div>
     </div>
   </div>
   <div class="status-badge">
@@ -208,210 +245,256 @@
   </div>
 </div>
 
-<div class="container">
-  <div class="grid-stats">
-    <div class="stat-card">
-      <div class="stat-icon">⏱️</div>
-      <div class="stat-value" id="uptimeVal">00:00:00</div>
-      <div class="stat-label">Uptime</div>
+<!-- MAIN CONTENT -->
+<div class="main" id="main">
+
+  <!-- PAGE: HOME (Stats) -->
+  <div class="page active" id="page-home">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">⏱️</div>
+        <div class="stat-value" id="uptimeVal">00:00:00</div>
+        <div class="stat-label">Uptime</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🔄</div>
+        <div class="stat-value" id="reconnectsVal">0</div>
+        <div class="stat-label">Bağlantı</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">❤️</div>
+        <div class="stat-value" id="healthVal">0</div>
+        <div class="stat-label">Can</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🍖</div>
+        <div class="stat-value" id="foodVal">0</div>
+        <div class="stat-label">Açlık</div>
+      </div>
     </div>
-    <div class="stat-card">
-      <div class="stat-icon">🔄</div>
-      <div class="stat-value" id="reconnectsVal">0</div>
-      <div class="stat-label">Yeniden Bağlanma</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">❤️</div>
-      <div class="stat-value" id="healthVal">0</div>
-      <div class="stat-label">Can</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">🍖</div>
-      <div class="stat-value" id="foodVal">0</div>
-      <div class="stat-label">Açlık</div>
-    </div>
-  </div>
 
-  <div class="grid-2">
-    <!-- LEFT: Config Panel -->
-    <div>
-      <div class="card">
-        <div class="card-header">⚙️ Bot Ayarları</div>
-        <div class="card-body">
-          <div class="tabs">
-            <div class="tab active" onclick="switchTab('connection')">🔌 Bağlantı</div>
-            <div class="tab" onclick="switchTab('afk')">💤 AFK</div>
-            <div class="tab" onclick="switchTab('advanced')">🔧 Gelişmiş</div>
-          </div>
-
-          <!-- Connection Tab -->
-          <div class="tab-content active" id="tab-connection">
-            <div class="form-group">
-              <label>🌐 Sunucu IP</label>
-              <input type="text" id="serverHost" placeholder="play.example.com veya 192.168.1.1" value="">
-            </div>
-            <div class="row-2">
-              <div class="form-group">
-                <label>🔌 Port</label>
-                <input type="number" id="serverPort" placeholder="25565" value="25565">
-              </div>
-              <div class="form-group">
-                <label>👤 Kullanıcı Adı</label>
-                <input type="text" id="username" placeholder="AFKBot" value="AFKBot">
-              </div>
-            </div>
-            <div class="form-group">
-              <label>🎮 Minecraft Versiyonu</label>
-              <select id="mcVersion">
-                <option value="auto">🔍 Otomatik Algıla</option>
-                <option value="1.21.1">1.21.1 (En Yeni)</option>
-                <option value="1.20.4">1.20.4</option>
-                <option value="1.20.1">1.20.1</option>
-                <option value="1.19.4">1.19.4</option>
-                <option value="1.19.2">1.19.2</option>
-                <option value="1.18.2">1.18.2</option>
-                <option value="1.17.1">1.17.1</option>
-                <option value="1.16.5">1.16.5</option>
-                <option value="1.12.2">1.12.2</option>
-                <option value="1.8.9">1.8.9 (Eski)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>🔑 Microsoft Şifre (Premium - İsteğe Bağlı)</label>
-              <input type="password" id="password" placeholder="Cracked sunucu için boş bırak">
-            </div>
-          </div>
-
-          <!-- AFK Tab -->
-          <div class="tab-content" id="tab-afk">
-            <div class="form-group">
-              <label>💤 AFK Yöntemi</label>
-              <div class="afk-methods">
-                <div class="method-card selected" onclick="selectAfk('rotate',this)">
-                  <div class="icon">🔄</div>
-                  <div class="name">Döndürme</div>
-                </div>
-                <div class="method-card" onclick="selectAfk('sneak',this)">
-                  <div class="icon">🦾</div>
-                  <div class="name">Çömelme</div>
-                </div>
-                <div class="method-card" onclick="selectAfk('jump',this)">
-                  <div class="icon">⬆️</div>
-                  <div class="name">Zıplama</div>
-                </div>
-                <div class="method-card" onclick="selectAfk('swing',this)">
-                  <div class="icon">👋</div>
-                  <div class="name">Kol Sallama</div>
-                </div>
-                <div class="method-card" onclick="selectAfk('none',this)" style="grid-column:span 2">
-                  <div class="icon">💤</div>
-                  <div class="name">Pasif (Hareketsiz)</div>
-                </div>
-              </div>
-              <input type="hidden" id="afkMethod" value="rotate">
-            </div>
-            <div class="form-group">
-              <div class="checkbox-row">
-                <input type="checkbox" id="autoReply" checked>
-                <label for="autoReply">🤖 Otomatik Yanıt (AFK mesajı alınca)</label>
-              </div>
-            </div>
-            <div class="form-group">
-              <label>💬 Otomatik Yanıt Mesajı</label>
-              <input type="text" id="autoReplyMsg" value="AFK modundayım, şu an müsait değilim!">
-            </div>
-          </div>
-
-          <!-- Advanced Tab -->
-          <div class="tab-content" id="tab-advanced">
-            <div class="form-group">
-              <div class="checkbox-row">
-                <input type="checkbox" id="autoReconnect" checked>
-                <label for="autoReconnect">🔄 Otomatik Yeniden Bağlan</label>
-              </div>
-            </div>
-            <div class="form-group">
-              <label>⏱️ Yeniden Bağlanma Gecikmesi (saniye)</label>
-              <input type="number" id="reconnectDelay" value="30" min="5" max="300">
-            </div>
-            <div class="form-group">
-              <label>💬 Girişte Chat Mesajı (isteğe bağlı)</label>
-              <input type="text" id="joinMsg" placeholder="Merhaba! AFK botuyum.">
-            </div>
-            <div class="form-group">
-              <label>🔐 Giriş Komutu (isteğe bağlı)</label>
-              <input type="text" id="loginCmd" placeholder="/login şifre1234">
-            </div>
-          </div>
-
-          <div style="margin-top:16px">
-            <button class="btn btn-start" onclick="startBot()">▶ Botu Başlat</button>
-            <button class="btn btn-stop" onclick="stopBot()">⏹ Botu Durdur</button>
-          </div>
+    <!-- Sağlık Barları -->
+    <div class="card">
+      <div class="card-header">❤️ Sağlık & Konum</div>
+      <div class="card-body">
+        <div class="bar-row">
+          <div class="bar-label"><span>❤️ Can</span><span id="healthText">0/20</span></div>
+          <div class="progress-bar"><div class="progress-fill health-bar" id="healthBar" style="width:0%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>🍖 Açlık</span><span id="foodText">0/20</span></div>
+          <div class="progress-bar"><div class="progress-fill food-bar" id="foodBar" style="width:0%"></div></div>
+        </div>
+        <div class="pos-display">
+          <div class="pos-coord"><span>X</span><strong id="posX">—</strong></div>
+          <div class="pos-coord"><span>Y</span><strong id="posY">—</strong></div>
+          <div class="pos-coord"><span>Z</span><strong id="posZ">—</strong></div>
         </div>
       </div>
+    </div>
 
-      <!-- Position Card -->
-      <div class="card" style="margin-top:16px">
-        <div class="card-header">📍 Konum & Sağlık</div>
-        <div class="card-body">
-          <div style="margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:4px">
-              <span>❤️ Can</span><span id="healthText">0/20</span>
-            </div>
-            <div class="progress-bar"><div class="progress-fill progress-health" id="healthBar" style="width:0%"></div></div>
+    <!-- Hızlı İşlemler -->
+    <div class="card">
+      <div class="card-header">⚡ Hızlı İşlemler</div>
+      <div class="card-body">
+        <div class="quick-grid">
+          <div class="quick-btn" onclick="showPage('config')">
+            <span class="q-icon">⚙️</span>Ayarlar
           </div>
-          <div style="margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:4px">
-              <span>🍖 Açlık</span><span id="foodText">0/20</span>
-            </div>
-            <div class="progress-bar"><div class="progress-fill progress-food" id="foodBar" style="width:0%"></div></div>
+          <div class="quick-btn" onclick="showPage('console')">
+            <span class="q-icon">📟</span>Konsol
           </div>
-          <div class="pos-display">
-            <div class="pos-coord"><span>X</span><strong id="posX">—</strong></div>
-            <div class="pos-coord"><span>Y</span><strong id="posY">—</strong></div>
-            <div class="pos-coord"><span>Z</span><strong id="posZ">—</strong></div>
+          <div class="quick-btn" onclick="stopBot()">
+            <span class="q-icon">⏹️</span>Durdur
+          </div>
+          <div class="quick-btn" onclick="socket.emit('clearLogs')">
+            <span class="q-icon">🗑️</span>Logları Temizle
           </div>
         </div>
       </div>
     </div>
 
-    <!-- RIGHT: Console -->
-    <div>
-      <div class="card" style="height:100%">
-        <div class="card-header" style="justify-content:space-between">
-          <span>📟 Konsol</span>
-          <button class="btn btn-clear btn-sm" onclick="clearLogs()">🗑 Temizle</button>
-        </div>
-        <div class="card-body" style="display:flex;flex-direction:column;height:calc(100% - 50px)">
-          <div class="console" id="console"></div>
-          <div class="chat-row">
-            <input type="text" id="chatInput" placeholder="Sunucuya mesaj gönder..." onkeydown="if(event.key==='Enter') sendChat()">
-            <button class="btn btn-send" onclick="sendChat()">📤 Gönder</button>
-          </div>
-          <div class="chat-row" style="margin-top:8px">
-            <input type="text" id="cmdInput" placeholder="/komut gir (örn: /gamemode creative)" onkeydown="if(event.key==='Enter') sendCmd()">
-            <button class="btn btn-send" style="background:var(--purple)" onclick="sendCmd()">⚡ Komut</button>
-          </div>
+    <!-- Sunucu Bilgisi -->
+    <div class="card">
+      <div class="card-header">🌐 Bağlantı Bilgisi</div>
+      <div class="card-body">
+        <div id="connInfo" style="font-size:0.85rem;color:var(--muted);text-align:center;padding:8px 0">
+          Bot henüz başlatılmadı
         </div>
       </div>
     </div>
   </div>
-</div>
+
+  <!-- PAGE: CONFIG -->
+  <div class="page" id="page-config">
+
+    <!-- Sunucu Bağlantı -->
+    <div class="card">
+      <div class="card-header">🔌 Sunucu Bağlantısı</div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>🌐 Sunucu IP</label>
+          <input type="text" id="serverHost" placeholder="play.example.com" inputmode="url" autocomplete="off" autocapitalize="none">
+        </div>
+        <div class="row-2">
+          <div class="form-group">
+            <label>🔌 Port</label>
+            <input type="number" id="serverPort" placeholder="25565" value="25565" inputmode="numeric">
+          </div>
+          <div class="form-group">
+            <label>👤 Kullanıcı</label>
+            <input type="text" id="username" placeholder="AFKBot" value="AFKBot" autocapitalize="none">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>🎮 Minecraft Versiyonu</label>
+          <select id="mcVersion">
+            <option value="auto">🔍 Otomatik Algıla</option>
+            <option value="1.21.1">1.21.1 (En Yeni)</option>
+            <option value="1.20.4">1.20.4</option>
+            <option value="1.20.1">1.20.1</option>
+            <option value="1.19.4">1.19.4</option>
+            <option value="1.19.2">1.19.2</option>
+            <option value="1.18.2">1.18.2</option>
+            <option value="1.17.1">1.17.1</option>
+            <option value="1.16.5">1.16.5</option>
+            <option value="1.12.2">1.12.2</option>
+            <option value="1.8.9">1.8.9 (Eski)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>🔑 Microsoft Şifre (Premium)</label>
+          <input type="password" id="password" placeholder="Cracked için boş bırak">
+        </div>
+      </div>
+    </div>
+
+    <!-- AFK Yöntemi -->
+    <div class="card">
+      <div class="card-header">💤 AFK Yöntemi</div>
+      <div class="card-body">
+        <div class="afk-grid">
+          <div class="method-card selected" onclick="selectAfk('rotate',this)">
+            <div class="icon">🔄</div><div class="name">Döndürme</div>
+          </div>
+          <div class="method-card" onclick="selectAfk('sneak',this)">
+            <div class="icon">🦾</div><div class="name">Çömelme</div>
+          </div>
+          <div class="method-card" onclick="selectAfk('jump',this)">
+            <div class="icon">⬆️</div><div class="name">Zıplama</div>
+          </div>
+          <div class="method-card" onclick="selectAfk('swing',this)">
+            <div class="icon">👋</div><div class="name">Kol Sallama</div>
+          </div>
+          <div class="method-card full" onclick="selectAfk('none',this)">
+            <div class="icon">💤</div><div class="name">Pasif</div>
+          </div>
+        </div>
+        <input type="hidden" id="afkMethod" value="rotate">
+      </div>
+    </div>
+
+    <!-- Gelişmiş -->
+    <div class="card">
+      <div class="card-header">🔧 Gelişmiş Ayarlar</div>
+      <div class="card-body">
+        <div class="check-row">
+          <input type="checkbox" id="autoReconnect" checked>
+          <label for="autoReconnect">🔄 Otomatik Yeniden Bağlan</label>
+        </div>
+        <div class="form-group" style="margin-top:10px">
+          <label>⏱️ Yeniden Bağlanma Gecikmesi (sn)</label>
+          <input type="number" id="reconnectDelay" value="30" min="5" max="300" inputmode="numeric">
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="autoReply" checked>
+          <label for="autoReply">🤖 Otomatik AFK Yanıtı</label>
+        </div>
+        <div class="form-group" style="margin-top:10px">
+          <label>💬 Otomatik Yanıt Mesajı</label>
+          <input type="text" id="autoReplyMsg" value="AFK modundayım!">
+        </div>
+        <div class="form-group">
+          <label>🔐 Giriş Komutu (isteğe bağlı)</label>
+          <input type="text" id="loginCmd" placeholder="/login sifre1234" autocapitalize="none">
+        </div>
+      </div>
+    </div>
+
+    <!-- Başlat/Durdur -->
+    <button class="btn btn-start" onclick="startBot()">▶ Botu Başlat</button>
+    <button class="btn btn-stop" onclick="stopBot()">⏹ Botu Durdur</button>
+    <div style="height:16px"></div>
+  </div>
+
+  <!-- PAGE: CONSOLE -->
+  <div class="page" id="page-console">
+    <div class="card">
+      <div class="card-header">
+        <span>📟 Canlı Konsol</span>
+        <button class="btn-gray" onclick="socket.emit('clearLogs')">🗑 Temizle</button>
+      </div>
+      <div class="card-body" style="padding:10px">
+        <div class="console" id="console"></div>
+        <div class="chat-row">
+          <input type="text" id="chatInput" placeholder="Mesaj gönder..." onkeydown="if(event.key==='Enter')sendChat()">
+          <button class="send-btn" style="background:var(--blue)" onclick="sendChat()">📤</button>
+        </div>
+        <div class="chat-row">
+          <input type="text" id="cmdInput" placeholder="/komut gir..." autocapitalize="none" onkeydown="if(event.key==='Enter')sendCmd()">
+          <button class="send-btn" style="background:var(--purple)" onclick="sendCmd()">⚡</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hızlı Komutlar -->
+    <div class="card">
+      <div class="card-header">⚡ Hızlı Komutlar</div>
+      <div class="card-body">
+        <div class="quick-grid">
+          <div class="quick-btn" onclick="quickCmd('/spawn')"><span class="q-icon">🏠</span>/spawn</div>
+          <div class="quick-btn" onclick="quickCmd('/tpa')"><span class="q-icon">📍</span>/tpa</div>
+          <div class="quick-btn" onclick="quickCmd('/list')"><span class="q-icon">👥</span>/list</div>
+          <div class="quick-btn" onclick="quickCmd('/ping')"><span class="q-icon">📡</span>/ping</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end .main -->
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-item active" onclick="showPage('home')" id="nav-home">
+    <span class="nav-icon">🏠</span>Ana Sayfa
+  </button>
+  <button class="nav-item" onclick="showPage('config')" id="nav-config">
+    <span class="nav-icon">⚙️</span>Ayarlar
+  </button>
+  <button class="nav-item" onclick="showPage('console')" id="nav-console">
+    <span class="nav-icon">📟</span>Konsol
+  </button>
+</nav>
 
 <script>
 const socket = io();
-let afkMethod = 'rotate';
 
-socket.on('connect', () => console.log('Panel bağlandı'));
+// ── Navigation ──
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+  document.getElementById('main').scrollTop = 0;
+}
 
+// ── Socket ──
 socket.on('init', (data) => {
   data.logs.forEach(log => appendLog(log));
   updateStatus(data.status);
   if (data.stats) updateStatsUI(data.stats);
 });
-
-socket.on('log', (entry) => appendLog(entry));
+socket.on('log', appendLog);
 socket.on('status', updateStatus);
 socket.on('stats', updateStatsUI);
 socket.on('clearLogs', () => { document.getElementById('console').innerHTML = ''; });
@@ -427,10 +510,10 @@ function appendLog(entry) {
 
 function updateStatus(status) {
   const dot = document.getElementById('statusDot');
-  const text = document.getElementById('statusText');
+  const txt = document.getElementById('statusText');
   dot.className = 'status-dot ' + status;
-  const labels = { online: '🟢 Çevrimiçi', offline: '🔴 Çevrimdışı', connecting: '🟡 Bağlanıyor...' };
-  text.textContent = labels[status] || status;
+  const labels = { online:'🟢 Çevrimiçi', offline:'🔴 Çevrimdışı', connecting:'🟡 Bağlanıyor...' };
+  txt.textContent = labels[status] || status;
 }
 
 function updateStatsUI(stats) {
@@ -444,8 +527,8 @@ function updateStatsUI(stats) {
   document.getElementById('reconnectsVal').textContent = stats.reconnects || 0;
   document.getElementById('healthVal').textContent = stats.health || 0;
   document.getElementById('foodVal').textContent = stats.food || 0;
-  document.getElementById('healthText').textContent = `${stats.health || 0}/20`;
-  document.getElementById('foodText').textContent = `${stats.food || 0}/20`;
+  document.getElementById('healthText').textContent = `${stats.health||0}/20`;
+  document.getElementById('foodText').textContent = `${stats.food||0}/20`;
   document.getElementById('healthBar').style.width = ((stats.health||0)/20*100)+'%';
   document.getElementById('foodBar').style.width = ((stats.food||0)/20*100)+'%';
   if (stats.position) {
@@ -455,9 +538,12 @@ function updateStatsUI(stats) {
   }
 }
 
+// ── Bot Controls ──
 function startBot() {
+  const host = document.getElementById('serverHost').value.trim();
+  if (!host) { alert('⚠️ Sunucu IP giriniz!'); showPage('config'); return; }
   socket.emit('start', {
-    host: document.getElementById('serverHost').value.trim(),
+    host,
     port: document.getElementById('serverPort').value || 25565,
     username: document.getElementById('username').value.trim() || 'AFKBot',
     version: document.getElementById('mcVersion').value,
@@ -467,12 +553,18 @@ function startBot() {
     autoReplyMsg: document.getElementById('autoReplyMsg').value,
     autoReconnect: document.getElementById('autoReconnect').checked,
     reconnectDelay: document.getElementById('reconnectDelay').value || 30,
-    joinMsg: document.getElementById('joinMsg').value,
     loginCmd: document.getElementById('loginCmd').value
   });
+
+  // Update conn info
+  document.getElementById('connInfo').innerHTML =
+    `<div style="color:var(--text)"><b>${host}:${document.getElementById('serverPort').value||25565}</b><br><span style="color:var(--muted)">👤 ${document.getElementById('username').value || 'AFKBot'} | 🎮 ${document.getElementById('mcVersion').value}</span></div>`;
+
+  showPage('home');
 }
 
 function stopBot() { socket.emit('stop'); }
+
 function sendChat() {
   const el = document.getElementById('chatInput');
   if (el.value.trim()) { socket.emit('chat', el.value.trim()); el.value = ''; }
@@ -481,16 +573,9 @@ function sendCmd() {
   const el = document.getElementById('cmdInput');
   if (el.value.trim()) { socket.emit('command', el.value.trim()); el.value = ''; }
 }
-function clearLogs() { socket.emit('clearLogs'); }
-
-function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => {
-    const tabs = ['connection','afk','advanced'];
-    t.classList.toggle('active', tabs[i] === name);
-  });
-  document.querySelectorAll('.tab-content').forEach(c => {
-    c.classList.toggle('active', c.id === 'tab-'+name);
-  });
+function quickCmd(cmd) {
+  document.getElementById('cmdInput').value = cmd;
+  document.getElementById('cmdInput').focus();
 }
 
 function selectAfk(method, el) {
