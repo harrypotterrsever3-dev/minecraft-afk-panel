@@ -9,12 +9,12 @@ echo.
 where node >nul 2>nul
 if %errorlevel% neq 0 (
   echo [HATA] Node.js bulunamadi!
-  echo Lutfen https://nodejs.org adresinden Node.js kurun.
+  echo Lutfen https://nodejs.org adresinden kurun.
   pause
   exit /b 1
 )
 
-echo [OK] Node.js bulundu: 
+echo [OK] Node.js versiyonu:
 node -v
 echo.
 
@@ -24,8 +24,8 @@ if not exist node_modules (
   echo.
 )
 
-echo [BASLATILIYOR] Panel aciliyor: http://localhost:3000
-echo [BILGI] Durdurmak icin Ctrl+C basin
+echo [BASLATILIYOR] Panel: http://localhost:3000
+echo [BILGI] Durdurmak icin bu pencereyi kapatin
 echo.
 start http://localhost:3000
 node server.js
